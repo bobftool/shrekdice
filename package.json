@@ -1,18 +1,16 @@
 {
-  "name": "shrekdice",
+  "name": "shrekdice_prueba",
   "version": "1.0.0",
   "description": "",
-  "main": "app.ts",
+  "main": "index.js",
   "scripts": {
-    "start": "node --inspect -r ts-node/register app.ts",
+    "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.4.0",
-    "express": "^4.18.2",
     "qrcode-terminal": "^0.12.0",
-    "ts-node": "^10.9.1"
+    "whatsapp-web.js": "^1.21.0"
   }
 }
