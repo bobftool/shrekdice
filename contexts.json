@@ -191,7 +191,6 @@
         ],
         "keywords": [
             "opinion",
-            "opinas",
             "opina",
             "piensas",
             "que te parece",
@@ -237,10 +236,11 @@
     },
     "test": {
         "replies": [
-            "respondiendo a {nombre_usuario} en el grupo {nombre_grupo}"
+            "*USER*\n\n```userName: {userName}\nuserNumber: {userNumber}\nuserId: {userId}```\n\n*GROUP*\n\n```groupName: {groupName}\ngroupId: {groupId}```\n\n*MESSAGE*\n\n```messageText: \"{messageText}\"\nmessageId: {messageId}\nmessageType: {messageType}```\n\n*DEVICE*\n\n```device: {device}```"
         ],
         "keywords": [
-            "test"
+            "test",
+            "doxeame"
         ]
     }
 }

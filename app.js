@@ -1,7 +1,7 @@
 const fs = require('fs');
 const qrcode = require('qrcode-terminal');
-
 const { Client, LocalAuth } = require('whatsapp-web.js');
+
 const contexts = readJSON('contexts.json');
 
 const client = new Client({
@@ -25,20 +25,20 @@ client.on('message', async(message)=>{
 
         if(mentionsMe && chat.id.user === '120363165440078106'){
             const data = await processData(message);
-
-            const context = processContext(data.messageText);
-            const reply = randomReply(context);
+            const output = generateReply(data);
             
-            //const lastMessage = Math.floor(Date.now() / 1000) - chat.timestamp;
-            message.reply(reply);
+            await client.sendMessage(data.groupId, output.reply, {quotedMessageId: output.quote});
 
             console.log('\n\n\n');
-            if(data.messageQuoted) console.log('--------------------------------------\n| '+data.messageQuoted.messageText+' |\n');
+            if(data.messageQuoted) console.log('--------------------------------------\n| '+data.messageQuoted.messageText+' |');
             console.log('--------------------------------------')
             console.log('['+data.userName+']: '+data.messageText)
             console.log('--------------------------------------');
-            console.log('[Bot]: '+reply);
+            console.log('[Bot]: '+output.reply);
             console.log('--------------------------------------');
+        }
+        else{
+
         }
     }
     else{
@@ -59,11 +59,11 @@ function containsMe(mentions){
     })? true : false;
 }
 
-async function processData(message, quoted){
+async function processData(message, isQuoted){
     const contact = await message.getContact();
     const chat = await message.getChat();
-    const mentions = await message.getMentions();
-    quoted? quoted = undefined : quoted = await message.getQuotedMessage();
+    const mentions = isQuoted? undefined : await message.getMentions();
+    const quoted = isQuoted? undefined : await message.getQuotedMessage();
 
     return {
         userName: contact.pushname,
@@ -72,15 +72,21 @@ async function processData(message, quoted){
         groupName: chat.name,
         groupId: chat.id._serialized,
         messageText: processText(message.body),
-        messageMentions: processMentions(mentions),
-        messageQuoted: quoted? processData(quoted, true) : undefined,
+        messageId: message.id._serialized,
+        messageMentions: mentions? processMentions(mentions) : undefined,
+        messageQuoted: quoted? await processData(quoted, true) : undefined,
         messageType: message.type,
-        messageTime: message.timestamp
+        messageTime: message.timestamp,
+        device: message.deviceType
     }
 }
 
+function processParticipants(participants){
+
+}
+
 function processText(text){
-    return text.replace(/\@[^\s]*/g, "").trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+    return text.replace(/\@[^\s]*/g, '').trim().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 }
 
 function processMentions(mentions){
@@ -105,6 +111,30 @@ function containsNumber(data, number){
 }
 */
 
+function generateReply(data){
+    let reply, quote;
+    const context = processContext(data.messageText);
+    const quotedContext = data.messageQuoted? processContext(data.messageQuoted.messageText) : undefined;
+
+    if(context){
+        reply = randomReply(context);
+        quote = data.messageQuoted? data.messageQuoted.messageId : data.messageId;
+    }
+    else if(quotedContext){
+        reply = randomReply(quotedContext);
+        quote = data.messageQuoted.messageId;
+    }
+    else{
+        reply = randomReply(context);
+        quote = data.messageId;
+    }
+
+    return {
+        reply: processReply(reply, data),
+        quote: quote
+    }
+}
+
 function processContext(text){
     for(let context in contexts){
         for(let keyword of contexts[context].keywords){
@@ -121,8 +151,12 @@ function randomReply(context){
     return contexts[context? context : 'any'].replies[Math.floor(Math.random() * contexts[context? context : 'any'].replies.length)];
 }
 
-function replaceVariables(text){
-    return text.replace().replace()
+function processReply(reply, data){
+    for(let info in data){
+        reply = reply.replaceAll('{'+info+'}', data[info]);
+    }
+
+    return reply;
 }
 
 client.initialize();
