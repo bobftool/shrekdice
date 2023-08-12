@@ -2,7 +2,7 @@
     "any": {
         "replies": [
             "trabajando duro o durando en el trabajo?",
-            "me juzgan sin ni siquiera conocerme {}",
+            "me juzgan sin ni siquiera conocerme {stickers}{1}",
             "tal vez no funciona en burros",
             "mejor afuera que adentro",
             "qué están haciendo en mi pantano?",
@@ -236,7 +236,7 @@
     },
     "test": {
         "replies": [
-            "*USER*\n\n```userName: {userName}\nuserNumber: {userNumber}\nuserId: {userId}```\n\n*GROUP*\n\n```groupName: {groupName}\ngroupId: {groupId}```\n\n*MESSAGE*\n\n```messageText: \"{messageText}\"\nmessageId: {messageId}\nmessageType: {messageType}```\n\n*DEVICE*\n\n```device: {device}```"
+            "*USER*\n\n```userName: {userName}\nuserNumber: {userNumber}\nuserId: {userId}```\n\n*GROUP*\n\n```groupName: {groupName}\ngroupId: {groupId}```\n\n*MESSAGE*\n\n```messageText: \"{messageText}\"\nmessageId: {messageId}\nmessageType: {messageType}```\n\n*DEVICE*\n\n```device: {device}```{stickers{0}}"
         ],
         "keywords": [
             "test",

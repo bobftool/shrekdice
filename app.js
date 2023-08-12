@@ -1,8 +1,9 @@
 const fs = require('fs');
 const qrcode = require('qrcode-terminal');
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 
 const contexts = readJSON('contexts.json');
+const media = readJSON('media.json');
 
 const client = new Client({
     authStrategy: new LocalAuth()
@@ -25,17 +26,17 @@ client.on('message', async(message)=>{
 
         if(mentionsMe && chat.id.user === '120363165440078106'){
             const data = await processData(message);
-            const output = generateReply(data);
-            
-            await client.sendMessage(data.groupId, output.reply, {quotedMessageId: output.quote});
+            const reply = generateReply(data);
+            await sendReply(reply);
 
             console.log('\n\n\n');
             if(data.messageQuoted) console.log('--------------------------------------\n| '+data.messageQuoted.messageText+' |');
             console.log('--------------------------------------')
             console.log('['+data.userName+']: '+data.messageText)
             console.log('--------------------------------------');
-            console.log('[Bot]: '+output.reply);
+            console.log('[Bot]: '+reply.text);
             console.log('--------------------------------------');
+            if(reply.sticker) console.log('[Bot]: '+reply.sticker+'\n--------------------------------------');
         }
         else{
 
@@ -48,6 +49,10 @@ client.on('message', async(message)=>{
 
 function readJSON(file){
     return JSON.parse(fs.readFileSync(file));
+}
+
+function writeJSON(file, object){
+    fs.writeFileSync(file, fs.readFileSync(file).push(JSON.stringify(object)));
 }
 
 function containsMe(mentions){
@@ -78,7 +83,7 @@ async function processData(message, isQuoted){
         messageType: message.type,
         messageTime: message.timestamp,
         device: message.deviceType
-    }
+    };
 }
 
 function processParticipants(participants){
@@ -103,14 +108,6 @@ function processMentions(mentions){
     return (data.length > 0)? data : undefined;
 }
 
-/*
-function containsNumber(data, number){
-    return data.find((item)=>{
-        return item.userNumber == number;
-    })? true : false;
-}
-*/
-
 function generateReply(data){
     let reply, quote;
     const context = processContext(data.messageText);
@@ -129,9 +126,18 @@ function generateReply(data){
         quote = data.messageId;
     }
 
+    reply = processReply(reply, data);
+
     return {
-        reply: processReply(reply, data),
-        quote: quote
+        to: data.groupId,
+        text: (reply.text.length > 0)? reply.text : undefined,
+        quote: quote,
+        sticker: reply.sticker? {
+            media: MessageMedia.fromFilePath(reply.sticker),
+            sendMediaAsSticker: true,
+            stickerName: '@shrek_dice',
+            stickerAuthor: '[Instagram: @WiStickers]'
+        } : undefined
     }
 }
 
@@ -152,11 +158,38 @@ function randomReply(context){
 }
 
 function processReply(reply, data){
-    for(let info in data){
-        reply = reply.replaceAll('{'+info+'}', data[info]);
+    let sticker;
+    reply = reply.split(/[{}]/);
+
+    for(let i=0, n=reply.length; i<n; i++){
+        if(data[reply[i]]){
+            reply[i] = data[reply[i]];
+        }
+        else if(media[reply[i]]){
+            sticker = media[reply[i]][reply[i+1]].path;
+            reply[i] = undefined;
+            reply[i+1] = undefined;
+            i++;
+        }
     }
 
-    return reply;
+    return {
+        text: reply.join(''),
+        sticker: sticker
+    };
+}
+
+async function sendReply(reply){
+    if(reply.text){
+        await client.sendMessage(reply.to, reply.text, {quotedMessageId: reply.quote});
+
+        if(reply.sticker){
+            await client.sendMessage(reply.to, undefined, reply.sticker);
+        }
+    }
+    else if(reply.sticker){
+        await client.sendMessage(reply.to, undefined, {...reply.sticker, quotedMessageId: reply.quote});
+    }
 }
 
 client.initialize();
