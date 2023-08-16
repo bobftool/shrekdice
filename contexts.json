@@ -234,13 +234,20 @@
             "que hago"
         ]
     },
+    "insulto": {
+        "replies": [
+            "el burro hablando de orejas"
+        ],
+        "keywords": [
+            
+        ]
+    },
     "test": {
         "replies": [
             "*USER*\n\n```userName: {userName}\nuserNumber: {userNumber}\nuserId: {userId}```\n\n*GROUP*\n\n```groupName: {groupName}\ngroupId: {groupId}```\n\n*MESSAGE*\n\n```messageText: \"{messageText}\"\nmessageId: {messageId}\nmessageType: {messageType}```\n\n*DEVICE*\n\n```device: {device}```{stickers{0}}"
         ],
         "keywords": [
-            "test",
-            "doxeame"
+            "!!!test!!!"
         ]
     }
 }

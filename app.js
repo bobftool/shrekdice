@@ -1,6 +1,9 @@
+require('dotenv').config();
+
 const fs = require('fs');
 const qrcode = require('qrcode-terminal');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { getGroup, addGroup, updateGroup } = require('./server');
 
 const contexts = readJSON('contexts.json');
 const media = readJSON('media.json');
@@ -13,37 +16,40 @@ client.on('qr', (qr)=>{
     qrcode.generate(qr, {small: true});
 });
 
-client.on('ready', ()=>{
-    console.log('Client is ready!');
+client.on('ready', async()=>{
+    console.log('WWEBJS FUNCIONANDO CORRECTAMENTE');
+    await client.sendMessage(process.env.SHREKDICE_ADMINNUMBER+'@c.us', '*ℹ️ [CONEXIÓN ESTABLECIDA]*\n\n'+new Date(Math.floor(Date.now())));
 });
 
 client.on('message', async(message)=>{
     const chat = await message.getChat();
+    const isOnDelay = await chatDelay(chat);
 
-    if(chat.isGroup){
-        const mentions = await message.getMentions();
-        const mentionsMe = containsMe(mentions);
-
-        if(mentionsMe && chat.id.user === '120363165440078106'){
-            const data = await processData(message);
-            const reply = generateReply(data);
-            await sendReply(reply);
-
-            console.log('\n\n\n');
-            if(data.messageQuoted) console.log('--------------------------------------\n| '+data.messageQuoted.messageText+' |');
-            console.log('--------------------------------------')
-            console.log('['+data.userName+']: '+data.messageText)
-            console.log('--------------------------------------');
-            console.log('[Bot]: '+reply.text);
-            console.log('--------------------------------------');
-            if(reply.sticker) console.log('[Bot]: '+reply.sticker+'\n--------------------------------------');
+    if(!isOnDelay){
+        if(chat.isGroup && !chat.archived){
+            const mentions = await message.getMentions();
+            const mentionsMe = findMention(mentions, process.env.SHREKDICE_USERNUMBER);
+    
+            if(mentionsMe /*&& chat.id.user === '120363165440078106'*/){
+                const data = await processData(message);
+                const reply = generateReply(data);
+    
+                await sendReply(reply);
+            }
+            else{
+                if(Math.floor(Math.random()*process.env.SHREKDICE_REPLYPROBABILITY) == 0){
+                    const data = await processData(message);
+                    const reply = generateReply(data);
+    
+                    await sendReply(reply);
+                }
+            }
         }
         else{
-
+            if(chat.id.user == process.env.SHREKDICE_ADMINNUMBER){
+                await replyAdmin(message);
+            }
         }
-    }
-    else{
-
     }
 });
 
@@ -52,12 +58,18 @@ function readJSON(file){
 }
 
 function writeJSON(file, object){
-    fs.writeFileSync(file, fs.readFileSync(file).push(JSON.stringify(object)));
+    fs.writeFileSync(file, JSON.stringify(object));
 }
 
-function containsMe(mentions){
+async function chatDelay(chat){
+    const group = await getGroup(chat.id._serialized);
+
+    return group? ((Math.floor(Date.now()/1000) - group.lastMessageTime) < process.env.SHREKDICE_REPLIDELAY)? true : false : false;
+}
+
+function findMention(mentions, number){
     return mentions.find((mention, index)=>{
-        if(mention.id.user === '5215535562214'){
+        if(mention.id.user == number){
             mentions.splice(index, 1);
             return true;
         }
@@ -84,10 +96,6 @@ async function processData(message, isQuoted){
         messageTime: message.timestamp,
         device: message.deviceType
     };
-}
-
-function processParticipants(participants){
-
 }
 
 function processText(text){
@@ -190,6 +198,61 @@ async function sendReply(reply){
     else if(reply.sticker){
         await client.sendMessage(reply.to, undefined, {...reply.sticker, quotedMessageId: reply.quote});
     }
+
+    await updateGroup(reply.to);
+}
+
+async function replyAdmin(message){
+    const instructions = message.body.replace(/(\r\n|\n|\r| )/gm, '').split('!');
+    let reply;
+
+    switch(instructions[1]){
+        case 'entrar':
+            reply = await instructionEntrar(instructions[2], instructions[3]);
+        break;
+
+        default: reply =
+        '*ℹ️ [MENÚ]*\n\n'+
+        '*- Entrar a un grupo:*\n```!entrar\n!usuario\n!link```'
+    }
+
+    message.reply(reply);
+}
+
+async function instructionEntrar(user, link){
+    if(user && link){
+        const inviteCode = link.split('/').pop();
+
+        try{
+            const id = await client.acceptInvite(inviteCode);
+            let group = await getGroup(id);
+
+            if(group){
+                return '*🔵 [YA ES PARTE DEL GRUPO]*\n\n' + groupInfo(group);
+            }
+            else{
+                
+                group = await addGroup(id, user, inviteCode);
+
+                return '*🟢 [SE AGREGÓ UN NUEVO GRUPO]*\n\n' + groupInfo(group);
+            }
+        }
+        catch{
+            return '*🔴 [NO SE PUDO UNIR AL GRUPO]*';
+        }
+    }
+    else{
+        return '*ℹ️ [INFO]*\n\nEJEMPLO:\n```!entrar\n!usuario\n!link```';
+    }
+}
+
+function groupInfo(group){
+    return '*user:* '+group.user+'\n'+
+    '*id:* '+group.id+'\n'+
+    '*joinedTime:* '+new Date(group.joinedTime*1000)+'\n'+
+    '*inviteCode:* https://chat.whatsapp.com/'+group.inviteCode+'\n'+
+    '*lastMessageTime:* '+(group.lastMessageTime? new Date(group.lastMessageTime*1000) : 'NO HAY MENSAJES RECIENTES')+'\n'+
+    '*messageCount:* '+group.messageCount+'\n'
 }
 
 client.initialize();
