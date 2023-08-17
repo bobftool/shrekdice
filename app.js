@@ -25,30 +25,25 @@ client.on('message', async(message)=>{
     const chat = await message.getChat();
     const isOnDelay = await chatDelay(chat);
 
-    if(!isOnDelay){
-        if(chat.isGroup && !chat.archived){
-            const mentions = await message.getMentions();
-            const mentionsMe = findMention(mentions, process.env.SHREKDICE_USERNUMBER);
-    
-            if(mentionsMe /*&& chat.id.user === '120363165440078106'*/){
-                const data = await processData(message);
-                const reply = generateReply(data);
-    
-                await sendReply(reply);
-            }
-            else{
-                if(Math.floor(Math.random()*process.env.SHREKDICE_REPLYPROBABILITY) == 0){
-                    const data = await processData(message);
-                    const reply = generateReply(data);
-    
-                    await sendReply(reply);
-                }
-            }
+    console.log('[message]: '+message.body+'\n'+new Date(Math.floor(Date.now()))+'\n');
+
+    if(chat.isGroup && !chat.archived && !isOnDelay){
+        const mention = mentionsMe(await message.getMentions());
+        const quoted = mention? undefined : (await quotedMe(await message.getQuotedMessage()));
+        const random = (mention || quoted)? undefined : randomlyReply();
+
+        if(mention || quoted || random){
+            const data = await processData(message);
+            const reply = generateReply(data);
+
+            await sendReply(reply);
+            
+            console.log('[reply] ('+(mention? 'mention' : quoted? 'quoted' : 'random')+'): '+reply.text+'\n'+new Date(Math.floor(Date.now()))+'\n');
         }
-        else{
-            if(chat.id.user == process.env.SHREKDICE_ADMINNUMBER){
-                await replyAdmin(message);
-            }
+    }
+    else{
+        if(chat.id.user == process.env.SHREKDICE_ADMINNUMBER){
+            await replyAdmin(message);
         }
     }
 });
@@ -64,16 +59,24 @@ function writeJSON(file, object){
 async function chatDelay(chat){
     const group = await getGroup(chat.id._serialized);
 
-    return group? ((Math.floor(Date.now()/1000) - group.lastMessageTime) < process.env.SHREKDICE_REPLIDELAY)? true : false : false;
+    return group? ((Math.floor(Date.now()/1000) - group.lastMessageTime) < process.env.SHREKDICE_REPLYDELAY)? true : false : false;
 }
 
-function findMention(mentions, number){
+function mentionsMe(mentions){
     return mentions.find((mention, index)=>{
-        if(mention.id.user == number){
+        if(mention.id.user == process.env.SHREKDICE_USERNUMBER){
             mentions.splice(index, 1);
             return true;
         }
     })? true : false;
+}
+
+async function quotedMe(quoted){
+    return quoted? ((await quoted.getContact()).id.user == process.env.SHREKDICE_USERNUMBER)? true : false : false;
+}
+
+function randomlyReply(){
+    return (Math.floor(Math.random()*process.env.SHREKDICE_REPLYPROBABILITY) == 0);
 }
 
 async function processData(message, isQuoted){
@@ -94,7 +97,8 @@ async function processData(message, isQuoted){
         messageQuoted: quoted? await processData(quoted, true) : undefined,
         messageType: message.type,
         messageTime: message.timestamp,
-        device: message.deviceType
+        device: message.deviceType,
+        chat: chat
     };
 }
 
@@ -145,7 +149,10 @@ function generateReply(data){
             sendMediaAsSticker: true,
             stickerName: '@shrek_dice',
             stickerAuthor: '[Instagram: @WiStickers]'
-        } : undefined
+        } : undefined,
+        writing: async()=>{await data.chat.sendStateTyping();},
+        recording: async()=>{await data.chat.sendStateRecording();},
+        finish: async()=>{await data.chat.clearState();}
     }
 }
 
@@ -188,18 +195,25 @@ function processReply(reply, data){
 }
 
 async function sendReply(reply){
-    if(reply.text){
-        await client.sendMessage(reply.to, reply.text, {quotedMessageId: reply.quote});
+    const writingTime = (Math.floor(Math.random()*process.env.SHREKDICE_WRITINGTIME*1000));
 
-        if(reply.sticker){
-            await client.sendMessage(reply.to, undefined, reply.sticker);
+    await reply.writing();
+
+    setTimeout(async()=>{
+        if(reply.text){
+            await client.sendMessage(reply.to, reply.text, {quotedMessageId: reply.quote});
+    
+            if(reply.sticker){
+                await client.sendMessage(reply.to, undefined, reply.sticker);
+            }
         }
-    }
-    else if(reply.sticker){
-        await client.sendMessage(reply.to, undefined, {...reply.sticker, quotedMessageId: reply.quote});
-    }
-
-    await updateGroup(reply.to);
+        else if(reply.sticker){
+            await client.sendMessage(reply.to, undefined, {...reply.sticker, quotedMessageId: reply.quote});
+        }
+    
+        await reply.finish();
+        await updateGroup(reply.to);
+    }, writingTime);
 }
 
 async function replyAdmin(message){
