@@ -123,11 +123,11 @@ function processMentions(mentions){
 function generateReply(data){
     let reply, quote;
     const context = processContext(data.messageText);
-    const quotedContext = data.messageQuoted? processContext(data.messageQuoted.messageText) : undefined;
+    const quotedContext = data.messageQuoted? (data.messageQuoted.userNumber == process.env.SHREKDICE_USERNUMBER)? undefined : processContext(data.messageQuoted.messageText) : undefined;
 
     if(context){
         reply = randomReply(context);
-        quote = data.messageQuoted? data.messageQuoted.messageId : data.messageId;
+        quote = data.messageQuoted? (data.messageQuoted.userNumber == process.env.SHREKDICE_USERNUMBER)? data.messageId : data.messageQuoted.messageId : data.messageId;
     }
     else if(quotedContext){
         reply = randomReply(quotedContext);
@@ -197,6 +197,7 @@ function processReply(reply, data){
 async function sendReply(reply){
     const writingTime = (Math.floor(Math.random()*process.env.SHREKDICE_WRITINGTIME*1000));
 
+    await updateGroup(reply.to);
     await reply.writing();
 
     setTimeout(async()=>{
@@ -212,7 +213,6 @@ async function sendReply(reply){
         }
     
         await reply.finish();
-        await updateGroup(reply.to);
     }, writingTime);
 }
 
